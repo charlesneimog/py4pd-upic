@@ -4,4 +4,4 @@
 
 ## Install
 
-Download this package and put it in the search path of PureData. You need of [https://github.com/charlesneimog/py4pd](py4pd).
+Download this package and put it in the search path of PureData. You need [py4pd](https://github.com/charlesneimog/py4pd).
