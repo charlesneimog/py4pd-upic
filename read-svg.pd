@@ -145,11 +145,8 @@
 #X restore 186 355 pd config;
 #X obj 16 357 *~ 0.05;
 #X obj 139 434 writesf~ 2;
-#X msg 185 398 open audio.wav;
-#X obj 16 66 t b b b b, f 20;
-#X msg 140 182 start;
-#X msg 220 316 stop;
 #X obj 215 5 declare -path lib;
+#X obj 16 66 t b b b, f 20;
 #X connect 0 0 11 0;
 #X connect 2 0 11 0;
 #X connect 3 0 28 0;
@@ -171,10 +168,6 @@
 #X connect 23 1 26 1;
 #X connect 24 0 23 0;
 #X connect 25 0 17 0;
-#X connect 27 0 26 0;
 #X connect 28 0 8 0;
 #X connect 28 1 0 0;
 #X connect 28 2 2 0;
-#X connect 28 3 29 0;
-#X connect 29 0 26 0;
-#X connect 30 0 26 0;
