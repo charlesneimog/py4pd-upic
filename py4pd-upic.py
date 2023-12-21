@@ -224,6 +224,6 @@ def color2par(color):
 
 def py4pd_upic_setup():
     pd.add_object(
-        readSvg, "readsvg", playable=True, pyout=True, ignore_none_return=True
+        readSvg, "readsvg", playable=True, py_out=True, ignore_none_return=True
     )
     pd.add_object(outputValues, "svg2pd")
