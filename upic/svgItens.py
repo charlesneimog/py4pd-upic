@@ -76,6 +76,7 @@ class SvgEvent:
     def __init__(self):
         self.x = 0.0
         self.y = 0.0
+        self.id = ""
         self.width = 0.0
         self.heigh = 0.0
         self.rangeUp = 0.0
@@ -98,6 +99,19 @@ class SvgEvent:
 
     def getPathPattern(self, attr):
         keys = attr["style"].split(";")
+        strokeWidth = None
+        strokeDasharray = None
+
+        thereIsNoStroke = True
+        for key in keys:
+            if "stroke-dasharray" in key:
+                thereIsNoStroke = False
+
+        if thereIsNoStroke:
+            self.pathPattern = "default" 
+            return
+
+
         strokeWidth = float(
             [
                 item.split(":")[1]
@@ -105,6 +119,7 @@ class SvgEvent:
                 if "stroke-width" == item.split(":")[0]
             ][0]
         )
+        # pd.print(keys)
         strokeDasharray = [
             item.split(":")[1]
             for item in keys
@@ -117,7 +132,7 @@ class SvgEvent:
             strokeDasharray = "P" + "".join([str(item) for item in strokeDasharray])
             self.pathPattern = strokeDasharray
         except:
-            self.pathPattern = None
+            self.pathPattern = "default"
 
     def setColor(self, attr):
         color = attr["style"].split(";")
@@ -135,8 +150,23 @@ class SvgEvent:
             return f"<Rect: ({self.x}, {self.y})>"
         elif "Ellipse" in self.type:
             return f"<Ellipse: ({self.x}, {self.y})>"
+        elif "Star" in self.type:
+            return f"<Star: ({self.x}, {self.y})>"
         else:
-            return f"<Event: ({self.x}, {self.y})>"
+            return f"<Not Implemented Event: ({self.x}, {self.y})>"
+
+
+
+def getElementHtml(parsed_svg, elem_str, id):
+    elems = parsed_svg.getElementsByTagName(elem_str)
+    alreadySet = False
+    foundedElem = None
+    for elem in elems:
+        if elem.getAttribute("id") == id and not alreadySet:
+            foundedElem = elem
+            alreadySet = True
+    return foundedElem
+
 
 
 def getSvg(svg_file):
@@ -156,7 +186,12 @@ def getSvg(svg_file):
     home = pd.get_patch_dir()
     svg_file = os.path.join(home, svg_file)
     parsed_svg = parse(svg_file)
-    paths, attributes, svg_attributes = svg2paths2(svg_file)
+    try:
+        paths, attributes, svg_attributes = svg2paths2(svg_file)
+    except:
+        pd.error("Error parsing SVG")
+        return
+
     UpicPiece = UPIC()
     UpicPiece.viewBox = svg_attributes["viewBox"]
     pathCount = 0
@@ -172,12 +207,19 @@ def getSvg(svg_file):
                 cy = float(attr["sodipodi:cy"])
                 event.x = cx
                 event.y = cy
+                event.id = attr["id"]
                 event.color = attr["style"].split(";")[0].split(":")[1]
+                if "inkscape:flatsided" in attr:
+                    isNotStar = attr["inkscape:flatsided"]
+                    if isNotStar == "true":
+                        event.type = "Polygon"
+                    else:
+                        event.type = "Star"
                 event.sides = int(attr["sodipodi:sides"])
-                event.type = "Polygon"
                 Events.append(event)
             else:
                 pd.error("Polygon without sides, this is not supported yet")
+                return None
         else:
             style = attr["style"]
             attrId = attr["id"]
@@ -210,8 +252,19 @@ def getSvg(svg_file):
 
             elif "path" in attrId:
                 if "d" in attr:
+                    elem = getElementHtml(parsed_svg, "path", attrId)
+                    if elem is not None:
+                        desc = elem.getElementsByTagName("desc")
+                        if len(desc) != 0:
+                            if len(desc) > 1:
+                                raise ValueError("Only one description is allowed")
+                            descContent = desc[0].firstChild.nodeValue.strip()
+                            descMessages = descContent.split(";")
+                            descMessages = [item for item in descMessages if item != ""]
+
                     event.type = "Path"
                     event.countId = pathCount
+                    event.id = attrId
                     pathCount += 1
                     event.setPathColor(attr)
                     event.getPathPattern(attr)
@@ -230,15 +283,18 @@ def getSvg(svg_file):
                 else:
                     event.type = "Ellipse"
                     event.countId = ellipseCount
+                    event.id = attrId
                     ellipseCount += 1
                     event.x = float(attr["cx"])
                     event.y = float(attr["cy"])
+                    event.width = float(attr["rx"]) * 2
                     event.setColor(attr)
                     Events.append(event)
                     continue
             elif "rect" in attrId:
                 event.type = "Rect"
                 event.countId = rectCount
+                event.id = attrId
                 rectCount += 1
                 event.x = float(attr["x"])
                 event.y = float(attr["y"])
@@ -288,6 +344,7 @@ def getPathCompleteLine(system, event, points):
     lengthInMs = msOnsetFinal - msOnsetInitial
     finalX_Y_Points = []
     onset = -1
+    stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4 # step
     for point in points:
         className = getattr(point, "__class__")
         if className.__name__ == "CubicBezier":
@@ -301,22 +358,31 @@ def getPathCompleteLine(system, event, points):
                     onset = thisOnset
         else:
             raise ValueError("Only CubicBezier supported for now")
+
+    previousOnset = msOnsetInitial - stepForBlock
     for point in finalX_Y_Points:
-        bezierEvent = SvgEvent()
-        bezierEvent.type = "Path"
-        bezierEvent.color = event.color
-        bezierEvent.countId = event.countId
-        bezierEvent.finalPoints = point
-        bezierEvent.pathPattern = event.pathPattern
-        verticalProportinalPosicion = system.height - (point[1] - system.startY)
-        bezierEvent.verticalPosition = verticalProportinalPosicion / system.height
         onsetPoint = getOnset(system, point[0])
-        pd.add_to_player(onsetPoint, bezierEvent)
+        if onsetPoint > previousOnset + stepForBlock + 1:
+            bezierEvent = SvgEvent()
+            bezierEvent.type = "Path"
+            bezierEvent.id = event.id
+            bezierEvent.color = event.color
+            bezierEvent.countId = event.countId
+            bezierEvent.finalPoints = point
+            bezierEvent.pathPattern = event.pathPattern
+            verticalProportinalPosicion = system.height - (point[1] - system.startY)
+            bezierEvent.verticalPosition = verticalProportinalPosicion / system.height
+            pd.add_to_player(onsetPoint, bezierEvent)
+            previousOnset = onsetPoint
 
 
 def readSvg(svg_file):
     UpicPiece = getSvg(svg_file)
+    if UpicPiece is None:
+        return None
     pd.clear_player()
+
+    # Systems as Score Systems (here retangles)
     for system in UpicPiece.Systems:
         width = system.width
         height = system.height
@@ -334,12 +400,16 @@ def readSvg(svg_file):
             ):
                 horizontalSpan = system.width - system.startX
                 verticalProportinalPosicion = system.height - (event.y - system.startY)
+                duration = event.width * system.duration / system.width
+                event.duration = duration
                 event.verticalPosition = verticalProportinalPosicion / system.height
                 onset = int(
                     (event.x - system.startX) * system.duration / horizontalSpan
                 )
                 onset = system.start + onset
                 pd.add_to_player(onset, event)
+
+
             elif event.type == "Path":
                 points = []
                 inside = True
@@ -352,25 +422,64 @@ def readSvg(svg_file):
                     ):
                         points.append(path)
                     else:
-                        # TODO: Add warning if not inside any system
                         inside = False
-                        pass
                 if inside:
                     getPathCompleteLine(system, event, points)
+
+            elif event.type == "Polygon":
+                pd.print("Ellipse not supported yet")
+                pass
+
+            elif event.type == "Star":
+                pd.print("Star not supported yet")
+                pass
+
     print("Done!")
+
+def svg_filter(event, attr, value):
+    if hasattr(event, attr):
+        eventValue = getattr(event, attr)
+        if eventValue == value:
+            return event
+        else:
+            return None
+    else: 
+        return None
+
+def svg_get(event, attr):
+
+    if hasattr(event, attr):
+        eventValue = getattr(event, attr)
+        return eventValue
+    else: 
+        return None
 
 
 def outputValues(event):
-    if event.type == "Ellipse":
-        pd.out([event.type, event.color, event.countId, event.verticalPosition])
+    # always using type, id, color, 
+    if event.type in ["Ellipse", "Star", "Polygon"]:
+        pd.out(
+            [
+                event.type, 
+                event.id, 
+                event.color, 
+                event.countId, 
+                event.verticalPosition, 
+                event.duration
+            ]
+        )
+
 
     elif event.type == "Path":
         pd.out(
             [
                 event.type,
+                event.id,
                 event.color,
                 event.pathPattern,
                 event.countId,
                 event.verticalPosition,
             ]
         )
+
+
