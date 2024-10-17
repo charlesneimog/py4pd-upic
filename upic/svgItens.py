@@ -12,6 +12,8 @@ class UPIC:
         self.Systems = []
         self.Events = []
         self.viewBox = None
+        self.pathSystem = None
+        self.pathPoints = []
 
     def __repr__(self):
         return f"<Piece | {len(self.Events)} events>"
@@ -62,40 +64,51 @@ class System:
         return f"<System: {self.duration}ms>"
 
 
-class TextItem:
-    def __init__(self):
-        self.x = 0.0
-        self.y = 0.0
-        self.text = ""
-
-    def __repr__(self):
-        return f"<Text: ({self.x}, {self.y})>"
-
-
 class SvgEvent:
     def __init__(self):
         self.x = 0.0
         self.y = 0.0
+        self.count = 0
         self.id = ""
         self.width = 0.0
-        self.heigh = 0.0
-        self.rangeUp = 0.0
-        self.rangeDown = 0.0
+        self.height = 0.0
         self.verticalPosition = 0.0
-        self.pathPattern = ""
         self.finalPoints = []
-        self.countId = 0
         self.pathPoints = []
+        self.system: System
         self.color = ""
+        self.fill = ""
+        self.stroke = ""
         self.sides = 0
-        self.type = ""
+        self.eventType = ""
+        self.notTemporal = False
+        self.properties = []
 
-    def setPathColor(self, attr):
-        color = attr["style"].split(";")
-        color = [
-            item.split(":")[1] for item in color if "stroke" == item.split(":")[0]
-        ][0]
-        self.color = color
+        self.first = False
+        self.last = False
+
+        self.duration = 0
+        self.onset = 0
+
+        # subevents
+        self.childs = []
+        self.father: SvgEvent
+
+    def setStrokeColor(self, attr):
+        try:
+            color = attr["style"].split(";")
+            color = [item.split(":")[1] for item in color if "stroke" == item.split(":")[0]][0]
+            self.stroke = color
+        except:
+            self.stroke = ""
+
+    def setFillColor(self, attr):
+        try:
+            color = attr["style"].split(";")
+            color = [item.split(":")[1] for item in color if "fill" == item.split(":")[0]][0]
+            self.fill = color
+        except:
+            self.fill = ""
 
     def getPathPattern(self, attr):
         keys = attr["style"].split(";")
@@ -108,53 +121,32 @@ class SvgEvent:
                 thereIsNoStroke = False
 
         if thereIsNoStroke:
-            self.pathPattern = "default" 
+            self.pathPattern = "default"
             return
 
-
-        strokeWidth = float(
-            [
-                item.split(":")[1]
-                for item in keys
-                if "stroke-width" == item.split(":")[0]
-            ][0]
-        )
+        strokeWidth = float([item.split(":")[1] for item in keys if "stroke-width" == item.split(":")[0]][0])
         # pd.print(keys)
-        strokeDasharray = [
-            item.split(":")[1]
-            for item in keys
-            if "stroke-dasharray" == item.split(":")[0]
-        ][0].split(",")
+        strokeDasharray = [item.split(":")[1] for item in keys if "stroke-dasharray" == item.split(":")[0]][0].split(",")
         try:
-            strokeDasharray = [
-                round(float(item) / strokeWidth) for item in strokeDasharray
-            ]
+            strokeDasharray = [round(float(item) / strokeWidth) for item in strokeDasharray]
             strokeDasharray = "P" + "".join([str(item) for item in strokeDasharray])
             self.pathPattern = strokeDasharray
         except:
             self.pathPattern = "default"
 
-    def setColor(self, attr):
-        color = attr["style"].split(";")
-        color = [item.split(":")[1] for item in color if "fill" == item.split(":")[0]][
-            0
-        ]
-        self.color = color
-
     def __repr__(self):
-        if "Polygon" in self.type:
+        if "Polygon" in self.eventType:
             return f"<Polygon_{self.sides}: ({round(self.x, 2)}, {round(self.y, 2)})>"
-        elif "Path" in self.type:
+        elif "Path" in self.eventType:
             return f"<Path: {len(self.pathPoints)} points>"
-        elif "Rect" in self.type:
+        elif "Rect" in self.eventType:
             return f"<Rect: ({self.x}, {self.y})>"
-        elif "Ellipse" in self.type:
+        elif "Ellipse" in self.eventType:
             return f"<Ellipse: ({self.x}, {self.y})>"
-        elif "Star" in self.type:
+        elif "Star" in self.eventType:
             return f"<Star: ({self.x}, {self.y})>"
         else:
             return f"<Not Implemented Event: ({self.x}, {self.y})>"
-
 
 
 def getElementHtml(parsed_svg, elem_str, id):
@@ -168,8 +160,54 @@ def getElementHtml(parsed_svg, elem_str, id):
     return foundedElem
 
 
+def getEventProperties(elem) -> list:
+    if elem is None:
+        return []
+    desc = elem.getElementsByTagName("desc")
+    properties = []
+    if len(desc) != 0:
+        if len(desc) > 1:
+            raise ValueError("Only one description is allowed")
+        descContent = desc[0].firstChild.nodeValue.strip()
+        descMessages = descContent.split(",")
+        descMessages = [item for item in descMessages if item != ""]
+        properties = descMessages
 
-def getSvg(svg_file):
+    formatedProperties = []
+    for prop in properties:
+        tokens = prop.split()
+        formatedProperties.append(tokens)
+
+    return properties
+
+
+def getSystems(parsed_svg, attr):
+    timeSystem = System()
+    timeSystem.startX = float(attr["x"])
+    timeSystem.startY = float(attr["y"])
+    timeSystem.width = float(attr["width"])
+    timeSystem.height = float(attr["height"])
+    rectID = attr["id"]
+
+    rects = parsed_svg.getElementsByTagName("rect")
+    alreadySet = False
+    newsystems = []
+    for rect in rects:
+        if rect.getAttribute("id") == rectID and not alreadySet:
+            descInsideRect = rect.getElementsByTagName("desc")
+            if len(descInsideRect) == 0:
+                raise Exception("No description inside rect, you must at least set the duration!")
+            desc_content = descInsideRect[0].firstChild.nodeValue.strip()
+            timeSystem.setProperties(desc_content)
+            timeSystem.processProperties()
+            newsystems.append(timeSystem)
+            alreadySet = True
+        elif rect.getAttribute("id") == rectID and alreadySet:
+            raise ValueError("System already set")
+    return newsystems
+
+
+def getSvg(svg_file: str) -> UPIC:
     """
     This get the data of svg and put in on time. I split the properties in two things.
     What we call "routers" and what we call "parameters".
@@ -187,18 +225,18 @@ def getSvg(svg_file):
     svg_file = os.path.join(home, svg_file)
     parsed_svg = parse(svg_file)
     try:
-        paths, attributes, svg_attributes = svg2paths2(svg_file)
+        things = svg2paths2(svg_file)
+        if len(things) == 3:
+            paths, attributes, svg_attributes = things
+        else:
+            raise ValueError("We need 3 things, paths, attributes and svg_attributes")
     except:
-        pd.error("Error parsing SVG")
-        return
+        raise ValueError("Error parsing SVG file")
 
-    UpicPiece = UPIC()
-    UpicPiece.viewBox = svg_attributes["viewBox"]
-    pathCount = 0
-    ellipseCount = 0
-    rectCount = 0
-    Events = []
-    Systems = []
+    piece: UPIC = UPIC()
+    piece.viewBox = svg_attributes["viewBox"]
+    events: list[SvgEvent] = []
+    systems: list[System] = []
     for path, attr in zip(paths, attributes):
         event = SvgEvent()
         if "sodipodi:type" in attr:
@@ -212,120 +250,88 @@ def getSvg(svg_file):
                 if "inkscape:flatsided" in attr:
                     isNotStar = attr["inkscape:flatsided"]
                     if isNotStar == "true":
-                        event.type = "Polygon"
+                        event.eventType = "Polygon"
                     else:
-                        event.type = "Star"
+                        event.eventType = "Star"
                 event.sides = int(attr["sodipodi:sides"])
-                Events.append(event)
+                events.append(event)
             else:
-                pd.error("Polygon without sides, this is not supported yet")
-                return None
+                raise Exception("Polygon without sides, this is not supported yet")
         else:
             style = attr["style"]
             attrId = attr["id"]
-            if "fill:none" in style and "rect" in attrId:
-                timeSystem = System()
-                timeSystem.startX = float(attr["x"])
-                timeSystem.startY = float(attr["y"])
-                timeSystem.width = float(attr["width"])
-                timeSystem.height = float(attr["height"])
-                rectID = attr["id"]
-                rects = parsed_svg.getElementsByTagName("rect")
-                alreadySet = False
-                for rect in rects:
-                    if rect.getAttribute("id") == rectID and not alreadySet:
-                        descInsideRect = rect.getElementsByTagName("desc")
-                        if len(descInsideRect) == 0:
-                            pd.error(
-                                "No description inside rect, you must at least set the duration!"
-                            )
-                            Systems.append(timeSystem)
-                            alreadySet = True
-                            continue
-                        desc_content = descInsideRect[0].firstChild.nodeValue.strip()
-                        timeSystem.setProperties(desc_content)
-                        timeSystem.processProperties()
-                        Systems.append(timeSystem)
-                        alreadySet = True
-                    elif rect.getAttribute("id") == rectID and alreadySet:
-                        pd.error("System already set")
 
+            # System
+            if "fill:none" in style and "stroke:#000000" in style and "rect" in attrId:
+                newsystems = getSystems(parsed_svg, attr)
+                for system in newsystems:
+                    systems.append(system)
+
+            # Music Events
             elif "path" in attrId:
                 if "d" in attr:
-                    elem = getElementHtml(parsed_svg, "path", attrId)
-                    if elem is not None:
-                        desc = elem.getElementsByTagName("desc")
-                        if len(desc) != 0:
-                            if len(desc) > 1:
-                                raise ValueError("Only one description is allowed")
-                            descContent = desc[0].firstChild.nodeValue.strip()
-                            descMessages = descContent.split(";")
-                            descMessages = [item for item in descMessages if item != ""]
-
-                    event.type = "Path"
-                    event.countId = pathCount
+                    event.eventType = "Path"
                     event.id = attrId
-                    pathCount += 1
-                    event.setPathColor(attr)
+                    event.setStrokeColor(attr)
                     event.getPathPattern(attr)
                     xPointBefore = 0
                     for x in path:
                         if x.start.real < xPointBefore:
-                            raise ValueError(
-                                "We use x values for time, we can't go back in time yet!!"
-                            )
+                            event.notTemporal = True
                         xPointBefore = x.start.real
                     event.pathPoints = path
                     event.x = path[0].start.real
                     event.y = path[0].start.imag
-                    Events.append(event)
+                    elem = getElementHtml(parsed_svg, "path", attrId)
+                    event.properties = getEventProperties(elem)
+                    events.append(event)
                     continue
                 else:
-                    event.type = "Ellipse"
-                    event.countId = ellipseCount
+                    event.eventType = "Ellipse"
                     event.id = attrId
-                    ellipseCount += 1
+                    elem = getElementHtml(parsed_svg, "ellipse", attrId)
+                    event.properties = getEventProperties(elem)
                     event.x = float(attr["cx"])
                     event.y = float(attr["cy"])
-                    event.width = float(attr["rx"]) * 2
-                    event.setColor(attr)
-                    Events.append(event)
+
+                    if "r" in attr:
+                        event.height = float(attr["r"]) * 2
+                        event.width = float(attr["r"]) * 2
+                    else:
+                        event.height = float(attr["ry"]) * 2
+                        event.width = float(attr["rx"]) * 2
+
+                    event.setFillColor(attr)
+                    event.setStrokeColor(attr)
+                    events.append(event)
                     continue
             elif "rect" in attrId:
-                event.type = "Rect"
-                event.countId = rectCount
+                event.eventType = "Rect"
                 event.id = attrId
-                rectCount += 1
                 event.x = float(attr["x"])
                 event.y = float(attr["y"])
                 event.width = float(attr["width"])
-                event.heigh = float(attr["height"])
-                Events.append(event)
+                event.height = float(attr["height"])
+                event.setFillColor(attr)
+                event.setStrokeColor(attr)
+                elem = getElementHtml(parsed_svg, "rect", attrId)
+                event.properties = getEventProperties(elem)
+                events.append(event)
                 continue
             else:
                 pd.error("Event not recognized, {}".format(attrId))
 
-    UpicPiece.Events = Events
-    UpicPiece.Systems = Systems
-    return UpicPiece
+    piece.Events = events
+    piece.Systems = systems
+    return piece
 
 
-def cubicBezier(start, control1, control2, end, num_points=100):
+def cubicBezier(start: float, control1: float, control2: float, end: float, num_points=100):
     points = []
     for t in range(num_points + 1):
         t /= num_points
-        x = (
-            (1 - t) ** 3 * start.real
-            + 3 * (1 - t) ** 2 * t * control1.real
-            + 3 * (1 - t) * t**2 * control2.real
-            + t**3 * end.real
-        )
-        y = (
-            (1 - t) ** 3 * start.imag
-            + 3 * (1 - t) ** 2 * t * control1.imag
-            + 3 * (1 - t) * t**2 * control2.imag
-            + t**3 * end.imag
-        )
+        x = (1 - t) ** 3 * start.real + 3 * (1 - t) ** 2 * t * control1.real + 3 * (1 - t) * t**2 * control2.real + t**3 * end.real
+        y = (1 - t) ** 3 * start.imag + 3 * (1 - t) ** 2 * t * control1.imag + 3 * (1 - t) * t**2 * control2.imag + t**3 * end.imag
         points.append((x, y))
     return points
 
@@ -336,21 +342,21 @@ def getOnset(system, point):
     return int(firstPoint * system.duration / horizontalSpan)
 
 
-# X is horizontal position
-# Y is vertical position
-def getPathCompleteLine(system, event, points):
+def getPath(event: SvgEvent):
+    system: System = event.system
+    points = event.pathPoints
+
     msOnsetInitial = getOnset(system, points[0].start.real)
     msOnsetFinal = getOnset(system, points[-1].end.real)
+
     lengthInMs = msOnsetFinal - msOnsetInitial
     finalX_Y_Points = []
     onset = -1
-    stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4 # step
+    stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4
     for point in points:
         className = getattr(point, "__class__")
         if className.__name__ == "CubicBezier":
-            cubicBezierPoints = cubicBezier(
-                point.start, point.control1, point.control2, point.end, lengthInMs
-            )
+            cubicBezierPoints = cubicBezier(point.start, point.control1, point.control2, point.end, lengthInMs)
             for cubicBezierPoint in cubicBezierPoints:
                 thisOnset = getOnset(system, cubicBezierPoint[0])
                 if thisOnset != onset:
@@ -359,127 +365,250 @@ def getPathCompleteLine(system, event, points):
         else:
             raise ValueError("Only CubicBezier supported for now")
 
-    previousOnset = msOnsetInitial - stepForBlock
+    positionI = 0
+    firstEvent = True
+
+    lastEvent = finalX_Y_Points[-1]
+    isLast = False
+
+    hasFather = event.father is not None
+
+    ownerHeight = system.height
+    ownerY = system.startY
+
+    if hasFather:
+        ownerHeight = event.father.height
+        ownerY = event.father.y
+
+    points = []
     for point in finalX_Y_Points:
-        onsetPoint = getOnset(system, point[0])
-        if onsetPoint > previousOnset + stepForBlock + 1:
+        onsetPoint = getOnset(system, point[0])  # - msOnsetInitial
+        if point == lastEvent:
+            isLast = True
+        if onsetPoint > stepForBlock + 1:
             bezierEvent = SvgEvent()
-            bezierEvent.type = "Path"
+            if firstEvent:
+                bezierEvent.first = True
+                firstEvent = False
+            if isLast:
+                bezierEvent.last = True
+
+            bezierEvent.eventType = "Path"
             bezierEvent.id = event.id
-            bezierEvent.color = event.color
-            bezierEvent.countId = event.countId
+            bezierEvent.color = event.stroke
+            bezierEvent.count = positionI
             bezierEvent.finalPoints = point
             bezierEvent.pathPattern = event.pathPattern
-            verticalProportinalPosicion = system.height - (point[1] - system.startY)
-            bezierEvent.verticalPosition = verticalProportinalPosicion / system.height
-            pd.add_to_player(onsetPoint, bezierEvent)
-            previousOnset = onsetPoint
+            vPos = ownerHeight - (point[1] - ownerY)
+            bezierEvent.verticalPosition = vPos / ownerHeight
+            points.append([onsetPoint, bezierEvent])
+            positionI += 1
+
+    return points
 
 
-def readSvg(svg_file):
-    UpicPiece = getSvg(svg_file)
-    if UpicPiece is None:
+def checkInsideElem(mainEvent: SvgEvent, subEvents: list[SvgEvent]):
+    startX = mainEvent.x
+    startY = mainEvent.y
+    mainWidth = mainEvent.width
+    mainHeight = mainEvent.height
+
+    goodSubEvents = []
+    for subEvent in subEvents:
+        if subEvent == mainEvent:
+            continue
+        finishX = startX + mainWidth
+        finishY = startY + mainHeight
+        if subEvent.x > startX and subEvent.x < finishX and subEvent.y > startY and subEvent.y < finishY and subEvent.eventType != "Path":
+            subEvent.father = mainEvent
+            goodSubEvents.append(subEvent)
+        elif subEvent.eventType == "Path":
+            points = []
+            inside = True
+            for path in subEvent.pathPoints:
+                if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
+                    points.append(path)
+                else:
+                    inside = False
+            if inside:
+                subEvent.father = mainEvent
+                goodSubEvents.append(subEvent)
+    return goodSubEvents
+
+
+def playSvg(svg_file: str):
+    piece = getSvg(svg_file)
+    if piece is None:
         return None
     pd.clear_player()
 
     # Systems as Score Systems (here retangles)
-    for system in UpicPiece.Systems:
+    mainEvents = []
+    for system in piece.Systems:
         width = system.width
         height = system.height
         startX = system.startX
         startY = system.startY
         finishX = startX + width
         finishY = startY + height
-        for event in UpicPiece.Events:
-            if (
-                event.x > startX
-                and event.x < finishX
-                and event.y > startY
-                and event.y < finishY
-                and event.type != "Path"
-            ):
+        for event in piece.Events:
+            inside = event.x > startX and event.x < finishX and event.y > startY and event.y < finishY
+            normalEvent = event.eventType in ["Ellipse", "Rect"]
+            if inside and normalEvent:
                 horizontalSpan = system.width - system.startX
                 verticalProportinalPosicion = system.height - (event.y - system.startY)
                 duration = event.width * system.duration / system.width
                 event.duration = duration
                 event.verticalPosition = verticalProportinalPosicion / system.height
-                onset = int(
-                    (event.x - system.startX) * system.duration / horizontalSpan
-                )
+                onset = int((event.x - system.startX) * system.duration / horizontalSpan)
                 onset = system.start + onset
-                pd.add_to_player(onset, event)
+                event.System = system
+                event.onset = onset
+                event.childs = checkInsideElem(event, piece.Events)
+                mainEvents.append(event)
 
-
-            elif event.type == "Path":
+            # star, polygons and others are paths
+            if event.eventType == "Path":
                 points = []
                 inside = True
                 for path in event.pathPoints:
-                    if (
-                        path.start.real > startX
-                        and path.start.real < finishX
-                        and path.start.imag > startY
-                        and path.start.imag < finishY
-                    ):
+                    if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
                         points.append(path)
                     else:
                         inside = False
+                        break
                 if inside:
-                    getPathCompleteLine(system, event, points)
+                    horizontalSpan = system.width - system.startX
+                    verticalProportinalPosicion = system.height - (event.y - system.startY)
+                    duration = event.width * system.duration / system.width
+                    event.duration = duration
+                    event.verticalPosition = verticalProportinalPosicion / system.height
+                    onset = int((event.x - system.startX) * system.duration / horizontalSpan)
+                    onset = system.start + onset
+                    event.system = system
+                    event.onset = onset
+                    event.pathPoints = points
+                    mainEvents.append(event)
 
-            elif event.type == "Polygon":
-                pd.print("Ellipse not supported yet")
-                pass
+            elif event.eventType == "Star" or event.eventType == "Polygon":
+                raise Exception("Not implemented yet")
+                points = []
+                inside = True
+                for path in event.pathPoints:
+                    if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
+                        points.append(path)
+                    else:
+                        inside = False
+                        break
+                if inside:
+                    horizontalSpan = system.width - system.startX
+                    verticalProportinalPosicion = system.height - (event.y - system.startY)
+                    duration = event.width * system.duration / system.width
+                    event.duration = duration
+                    event.verticalPosition = verticalProportinalPosicion / system.height
+                    onset = int((event.x - system.startX) * system.duration / horizontalSpan)
+                    onset = system.start + onset
+                    event.System = system
+                    event.onset = onset
+                    event.childs = checkInsideElem(event, piece.Events)
+                    mainEvents.append(event)
 
-            elif event.type == "Star":
-                pd.print("Star not supported yet")
-                pass
+    if len(mainEvents) == 0:
+        raise ValueError("No events found")
 
-    print("Done!")
+    firstonset = 0
+    firstevent: SvgEvent = mainEvents[0]
+    lastonset = 0
+    lastevent: SvgEvent = mainEvents[0]
 
-def svg_filter(event, attr, value):
+    for eventA in mainEvents:
+        eventIsInsideOther = False
+        for eventB in mainEvents:
+            if eventB.eventType == "Path":
+                continue
+            if eventA in eventB.childs:
+                eventIsInsideOther = True
+                continue
+        if not eventIsInsideOther:
+            onset = eventA.onset
+            if onset > lastonset:
+                lastonset = onset
+                lastevent = eventA
+            if onset < firstonset:
+                firstonset = onset
+                firstevent = eventA
+
+            pd.add_to_player(onset, eventA)
+
+    lastevent.last = True
+    firstevent.first = True
+
+    print("Score loaded")
+
+
+def playpath(events):
+    pd.clear_player()
+    if type(events) == SvgEvent:
+        events = [events]
+
+    for event in events:
+        points = getPath(event)
+        for point in points:
+            pd.add_to_player(point[0], point[1])
+
+
+def playchilds(event: list[SvgEvent]):
+    pd.clear_player()
+    fatherOnset = event[0].father
+    for child in event:
+        child_onset = child.onset - fatherOnset.onset
+        pd.add_to_player(child_onset, child)
+
+
+def svg_filter(event: SvgEvent, attr: str, value):
     if hasattr(event, attr):
         eventValue = getattr(event, attr)
         if eventValue == value:
             return event
         else:
             return None
-    else: 
+    else:
         return None
 
-def svg_get(event, attr):
 
+def svg_get(event: SvgEvent, attr: str):
     if hasattr(event, attr):
         eventValue = getattr(event, attr)
         return eventValue
-    else: 
-        return None
+    else:
+        raise Exception("Attribute not found")
 
 
-def outputValues(event):
-    # always using type, id, color, 
-    if event.type in ["Ellipse", "Star", "Polygon"]:
+def getsubevents(event: SvgEvent):
+    if hasattr(event, "childs"):
+        return event.childs
+
+
+def outputValues(event: SvgEvent):
+    # always using type, id, color,
+    if event.eventType in ["Ellipse", "Star", "Polygon"]:
         pd.out(
             [
-                event.type, 
-                event.id, 
-                event.color, 
-                event.countId, 
-                event.verticalPosition, 
-                event.duration
+                event.eventType,
+                event.id,
+                event.fill,
+                event.verticalPosition,
+                event.duration,
             ]
         )
 
-
-    elif event.type == "Path":
+    elif event.eventType == "Path":
         pd.out(
             [
-                event.type,
+                event.eventType,
                 event.id,
-                event.color,
+                event.stroke,
                 event.pathPattern,
-                event.countId,
                 event.verticalPosition,
             ]
         )
-
-
