@@ -1,0 +1,13 @@
+#N canvas 434 83 1052 896 10;
+#X obj 7 7 py4pd -lib py4pd-upic;
+#X obj 7 74 readsvg;
+#X msg 7 31 score.svg;
+#X msg 72 31 play;
+#X msg 108 31 stop;
+#X listbox 7 96 20 0 0 0 - - - 0;
+#X text 157 7 This object is used to read svg files.;
+#X text 5 119 To read svg files with py4pd-upic \, you need to format it in a custom way \, and I primarily test the creation of these files using Inkscape (a free vector graphics editor). In essence \, the goal is to create a black rectangle with a black stroke. The key information to include in each file's description are the duration and start properties. Duration refers to how long the black box should appear \, measured in milliseconds. Start corresponds to the onset time \, indicating when the black box should appear. To include these properties in the description \, follow these steps in Inkscape: 1) Select the Rectangle: Use the selection tool to choose the black rectangle you have drawn. 2) Access Object Properties: Right-click on the selected rectangle and choose Object Properties (or use the shortcut Ctrl+Shift+O). Enter Keywords: In the "Description" field \, type the two keywords: duration: followed by the value in milliseconds. start: followed by the onset time value. Here is an example for clarity: duration: 500 ms start: 1000 ms (indicating it begins 1 second after the reference point). This approach ensures that each black box is clearly defined within the file \, making it easier to manage timing and onset within the visual representation., f 84;
+#X connect 1 0 5 0;
+#X connect 2 0 1 0;
+#X connect 3 0 1 0;
+#X connect 4 0 1 0;

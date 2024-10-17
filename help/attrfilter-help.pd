@@ -1,0 +1,16 @@
+#N canvas 963 23 951 1016 10;
+#X obj 7 7 py4pd -lib py4pd-upic;
+#X obj 12 97 readsvg;
+#X msg 12 54 score.svg;
+#X msg 77 54 play;
+#X msg 113 54 stop;
+#X obj 12 123 attrfilter None color #ff0000;
+#X obj 12 149 print;
+#X text 9 174 [attrfilter] is an object used to filter SVG elements based on various attributes such as color \, ID \, shape (e.g. \, circle \, rectangle \, line) \, or other properties. This allows you to route SVG objects according to specific criteria.;
+#X text 9 238 In this path \, we are using the attrfilter object to filter all SVG objects by a specific color - red. The color red is represented in hexadecimal format as #ff0000. This is the standard way of specifying colors in many digital formats \, including SVG files.;
+#X text 9 307 When working in Inkscape \, you can easily find the hexadecimal code for a color by hovering your mouse over the desired color in the color palette. The hex code will be displayed \, allowing you to note or use it for filtering or further adjustments.;
+#X connect 1 0 5 0;
+#X connect 2 0 1 0;
+#X connect 3 0 1 0;
+#X connect 4 0 1 0;
+#X connect 5 0 6 0;

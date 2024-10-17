@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="80mm"
+   viewBox="0 0 210 80"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25, custom)"
+   sodipodi:docname="score.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.099408"
+     inkscape:cx="391.57439"
+     inkscape:cy="135.0727"
+     inkscape:window-width="1912"
+     inkscape:window-height="1052"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1"
+     showgrid="false">
+    <inkscape:grid
+       id="grid1"
+       units="mm"
+       originx="0"
+       originy="0"
+       spacingx="0.99999998"
+       spacingy="1"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="5"
+       dotted="false"
+       gridanglex="30"
+       gridanglez="30"
+       visible="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1">
+    <linearGradient
+       id="swatch8"
+       inkscape:swatch="solid">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop8" />
+    </linearGradient>
+    <linearGradient
+       id="swatch7"
+       inkscape:swatch="solid">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop7" />
+    </linearGradient>
+    <linearGradient
+       id="swatch6"
+       inkscape:swatch="solid">
+      <stop
+         style="stop-color:#ff8080;stop-opacity:1;"
+         offset="0"
+         id="stop6" />
+    </linearGradient>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.564999;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect4"
+       width="205.04584"
+       height="42.954811"
+       x="2.9999835"
+       y="18.522594">
+      <desc
+         id="desc4">duration 4000, start 0,</desc>
+    </rect>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.9389px;font-family:'Fira Code';-inkscape-font-specification:'Fira Code';fill:#1a1a1a;stroke-width:0.264583"
+       x="205.40868"
+       y="23.852781"
+       id="text36"><tspan
+         sodipodi:role="line"
+         id="tspan36"
+         style="stroke-width:0.264583"
+         x="205.40868"
+         y="23.852781" /></text>
+    <ellipse
+       style="fill:#ff0000;stroke:none;stroke-width:5.29167"
+       id="path1"
+       cx="14.012485"
+       cy="27.324343"
+       rx="6.279273"
+       ry="6.0819588" />
+    <ellipse
+       style="fill:#e9afaf;stroke:none;stroke-width:5.29167"
+       id="path1-2"
+       cx="145.30251"
+       cy="30.948744"
+       rx="6.279273"
+       ry="6.0819588" />
+    <ellipse
+       style="fill:#00ffcc;stroke:none;stroke-width:5.29167"
+       id="path1-7"
+       cx="171.95612"
+       cy="37.824898"
+       rx="6.279273"
+       ry="6.0819588" />
+    <ellipse
+       style="fill:#ddff55;stroke:none;stroke-width:5.29167"
+       id="path1-6"
+       cx="127.50612"
+       cy="49.466564"
+       rx="6.279273"
+       ry="6.0819588" />
+    <ellipse
+       style="fill:#c8ab37;stroke:none;stroke-width:5.29167"
+       id="path1-61"
+       cx="89.40612"
+       cy="30.94573"
+       rx="6.279273"
+       ry="6.0819588" />
+    <ellipse
+       style="fill:#00ffff;stroke:none;stroke-width:5.29167"
+       id="path1-20"
+       cx="44.42696"
+       cy="38.618649"
+       rx="6.279273"
+       ry="6.0819588" />
+  </g>
+</svg>

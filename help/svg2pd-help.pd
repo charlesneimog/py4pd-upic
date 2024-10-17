@@ -1,0 +1,14 @@
+#N canvas 799 423 322 216 10;
+#X obj 7 7 py4pd -lib py4pd-upic;
+#X obj 12 97 readsvg;
+#X msg 12 54 score.svg;
+#X msg 77 54 play;
+#X msg 113 54 stop;
+#X obj 12 119 svg2pd;
+#X listbox 12 141 20 0 0 0 - - - 0;
+#X text 10 162 svg2pd object just convert all the svg data to a pd list., f 30;
+#X connect 1 0 5 0;
+#X connect 2 0 1 0;
+#X connect 3 0 1 0;
+#X connect 4 0 1 0;
+#X connect 5 0 6 0;
