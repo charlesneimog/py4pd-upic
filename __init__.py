@@ -12,21 +12,31 @@ from .upic.svgItens import *
 
 
 def py4pd_upic_setup():
-    pd.add_object(playSvg, "playsvg", playable=True, py_out=True, ignore_none_return=True)
+    random = pd.new_object("u.playsvg")
+    random.addmethod("read", readSvg)
+    random.playable = True
+    random.py_out = True
+    random.ignore_none = True
+    random.add_object()
+    # playpath = pd.new_object("u.playpath")
+    # playpath.py_out = True
+    # playpath.ignore_none_return = True
+    # playpath.addmethod("read", readSvg)
+    # playpath.addobject()
 
     # convertion
 
     # filters
-    pd.add_object(svg_filter, "attrfilter", py_out=True, ignore_none_return=True)
-    pd.add_object(svg_get, "attrget", py_out=False, ignore_none_return=True)
+    pd.add_object(svg_filter, "u.filterattr", py_out=True, ignore_none_return=True)
+    pd.add_object(svg_get, "u.getattr", py_out=False, ignore_none_return=True)
 
     # subevents
-    pd.add_object(getsubevents, "getchilds", py_out=True, ignore_none_return=True)
-    pd.add_object(playchilds, "playchilds", py_out=True, ignore_none_return=True, playable=True)
+    pd.add_object(getsubevents, "u.getchilds", py_out=True, ignore_none_return=True)
+    pd.add_object(playchilds, "u.playchilds", py_out=True, ignore_none_return=True, playable=True)
 
     # paths
-    pd.add_object(getPath, "getpath", py_out=True, ignore_none_return=True)
-    pd.add_object(playpath, "playpath", py_out=True, ignore_none_return=True, playable=True)
+    pd.add_object(getPath, "u.getpath", py_out=True, ignore_none_return=True)
+    pd.add_object(playpath, "u.playpath", py_out=True, ignore_none_return=True, playable=True)
 
     # =
-    pd.print("[upic] by Charles K. Neimog!", show_prefix=False)
+    pd.print("[upic] by Charles K. Neimog (2024)", show_prefix=False)

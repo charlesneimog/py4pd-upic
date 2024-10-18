@@ -436,7 +436,7 @@ def checkInsideElem(mainEvent: SvgEvent, subEvents: list[SvgEvent]):
     return goodSubEvents
 
 
-def playSvg(svg_file: str):
+def readSvg(svg_file: str):
     piece = getSvg(svg_file)
     if piece is None:
         return None
