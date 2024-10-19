@@ -13,7 +13,7 @@ class UPIC:
         self.Events = []
         self.viewBox = None
         self.pathSystem = None
-        self.pathPoints = []
+        self.points = []
 
     def __repr__(self):
         return f"<Piece | {len(self.Events)} events>"
@@ -22,12 +22,12 @@ class UPIC:
 class System:
     def __init__(self):
         self.Id = ""
-        self.startX = 0.0
-        self.startY = 0.0
+        self.x = 0.0
+        self.y = 0.0
         self.width = 0.0
         self.height = 0.0
         self.properties = []
-        self.start = 0.0
+        self.onset = 0.0
         self.duration = 0.0
         self.Events = []
 
@@ -58,7 +58,7 @@ class System:
             if prop.tokens[0] == "duration":
                 self.duration = float(prop.tokens[1])
             elif prop.tokens[0] == "start":
-                self.start = float(prop.tokens[1])
+                self.onset = float(prop.tokens[1])
 
     def __repr__(self):
         return f"<System: {self.duration}ms>"
@@ -74,7 +74,7 @@ class SvgEvent:
         self.height = 0.0
         self.verticalPosition = 0.0
         self.finalPoints = []
-        self.pathPoints = []
+        self.points = []
         self.system: System
         self.color = ""
         self.fill = ""
@@ -138,7 +138,7 @@ class SvgEvent:
         if "Polygon" in self.eventType:
             return f"<Polygon_{self.sides}: ({round(self.x, 2)}, {round(self.y, 2)})>"
         elif "Path" in self.eventType:
-            return f"<Path: {len(self.pathPoints)} points>"
+            return f"<Path: {len(self.points)} points>"
         elif "Rect" in self.eventType:
             return f"<Rect: ({self.x}, {self.y})>"
         elif "Ellipse" in self.eventType:
@@ -183,8 +183,8 @@ def getEventProperties(elem) -> list:
 
 def getSystems(parsed_svg, attr):
     timeSystem = System()
-    timeSystem.startX = float(attr["x"])
-    timeSystem.startY = float(attr["y"])
+    timeSystem.x = float(attr["x"])
+    timeSystem.y = float(attr["y"])
     timeSystem.width = float(attr["width"])
     timeSystem.height = float(attr["height"])
     rectID = attr["id"]
@@ -279,7 +279,7 @@ def getSvg(svg_file: str) -> UPIC:
                         if x.start.real < xPointBefore:
                             event.notTemporal = True
                         xPointBefore = x.start.real
-                    event.pathPoints = path
+                    event.points = path
                     event.x = path[0].start.real
                     event.y = path[0].start.imag
                     elem = getElementHtml(parsed_svg, "path", attrId)
@@ -337,19 +337,23 @@ def cubicBezier(start: float, control1: float, control2: float, end: float, num_
 
 
 def getOnset(system, point):
-    horizontalSpan = system.width - system.startX
-    firstPoint = point - system.startX
+    horizontalSpan = system.width - system.x
+    firstPoint = point - system.x
     return int(firstPoint * system.duration / horizontalSpan)
 
 
-def getPath(event: SvgEvent):
-    system: System = event.system
-    points = event.pathPoints
+def buildPaths(event: SvgEvent):
+    system = event.system
+    points = event.points
+
+    hasFather = event.father is not None
+    if event.father is not None:
+        system = event.father
 
     msOnsetInitial = getOnset(system, points[0].start.real)
     msOnsetFinal = getOnset(system, points[-1].end.real)
-
     lengthInMs = msOnsetFinal - msOnsetInitial
+
     finalX_Y_Points = []
     onset = -1
     stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4
@@ -365,45 +369,45 @@ def getPath(event: SvgEvent):
         else:
             raise ValueError("Only CubicBezier supported for now")
 
+    fatherHeight = system.height
+    fatherY = system.y
+    hasFather = event.father is not None
+    if hasFather:
+        fatherHeight = event.father.height
+        fatherY = event.father.y
+
+    points = []
+
+    # rethink
     positionI = 0
     firstEvent = True
 
     lastEvent = finalX_Y_Points[-1]
     isLast = False
 
-    hasFather = event.father is not None
-
-    ownerHeight = system.height
-    ownerY = system.startY
-
-    if hasFather:
-        ownerHeight = event.father.height
-        ownerY = event.father.y
-
-    points = []
     for point in finalX_Y_Points:
-        onsetPoint = getOnset(system, point[0])  # - msOnsetInitial
+        onset = getOnset(system, point[0])
         if point == lastEvent:
             isLast = True
-        if onsetPoint > stepForBlock + 1:
-            bezierEvent = SvgEvent()
+        if onset > stepForBlock + 1:
+            pathPoint = SvgEvent()
             if firstEvent:
-                bezierEvent.first = True
+                pathPoint.first = True
                 firstEvent = False
             if isLast:
-                bezierEvent.last = True
-
-            bezierEvent.eventType = "Path"
-            bezierEvent.id = event.id
-            bezierEvent.color = event.stroke
-            bezierEvent.count = positionI
-            bezierEvent.finalPoints = point
-            bezierEvent.pathPattern = event.pathPattern
-            vPos = ownerHeight - (point[1] - ownerY)
-            bezierEvent.verticalPosition = vPos / ownerHeight
-            points.append([onsetPoint, bezierEvent])
+                pathPoint.last = True
+            pathPoint.eventType = "Path"
+            pathPoint.id = event.id
+            pathPoint.stroke = event.stroke
+            pathPoint.fill = event.fill
+            pathPoint.count = positionI
+            pathPoint.finalPoints = point
+            pathPoint.pathPattern = event.pathPattern
+            pathPoint.onset = onset
+            vPos = fatherHeight - (point[1] - fatherY)
+            pathPoint.verticalPosition = vPos / fatherHeight
+            points.append(pathPoint)
             positionI += 1
-
     return points
 
 
@@ -412,7 +416,6 @@ def checkInsideElem(mainEvent: SvgEvent, subEvents: list[SvgEvent]):
     startY = mainEvent.y
     mainWidth = mainEvent.width
     mainHeight = mainEvent.height
-
     goodSubEvents = []
     for subEvent in subEvents:
         if subEvent == mainEvent:
@@ -425,7 +428,7 @@ def checkInsideElem(mainEvent: SvgEvent, subEvents: list[SvgEvent]):
         elif subEvent.eventType == "Path":
             points = []
             inside = True
-            for path in subEvent.pathPoints:
+            for path in subEvent.points:
                 if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
                     points.append(path)
                 else:
@@ -447,21 +450,21 @@ def readSvg(svg_file: str):
     for system in piece.Systems:
         width = system.width
         height = system.height
-        startX = system.startX
-        startY = system.startY
+        startX = system.x
+        startY = system.y
         finishX = startX + width
         finishY = startY + height
         for event in piece.Events:
             inside = event.x > startX and event.x < finishX and event.y > startY and event.y < finishY
             normalEvent = event.eventType in ["Ellipse", "Rect"]
             if inside and normalEvent:
-                horizontalSpan = system.width - system.startX
-                verticalProportinalPosicion = system.height - (event.y - system.startY)
+                horizontalSpan = system.width - system.x
+                verticalPos = system.height - (event.y - system.y)
                 duration = event.width * system.duration / system.width
                 event.duration = duration
-                event.verticalPosition = verticalProportinalPosicion / system.height
-                onset = int((event.x - system.startX) * system.duration / horizontalSpan)
-                onset = system.start + onset
+                event.verticalPosition = verticalPos / system.height
+                onset = int((event.x - system.x) * system.duration / horizontalSpan)
+                onset = system.onset + onset
                 event.System = system
                 event.onset = onset
                 event.childs = checkInsideElem(event, piece.Events)
@@ -471,42 +474,47 @@ def readSvg(svg_file: str):
             if event.eventType == "Path":
                 points = []
                 inside = True
-                for path in event.pathPoints:
+
+                for path in event.points:
                     if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
                         points.append(path)
                     else:
                         inside = False
                         break
                 if inside:
-                    horizontalSpan = system.width - system.startX
-                    verticalProportinalPosicion = system.height - (event.y - system.startY)
+                    firstPointX = event.points[0].start.real
+                    lastPointX = event.points[-1].end.real
+                    event.width = lastPointX - firstPointX
+
+                    horizontalSpan = system.width - system.x
                     duration = event.width * system.duration / system.width
+
                     event.duration = duration
-                    event.verticalPosition = verticalProportinalPosicion / system.height
-                    onset = int((event.x - system.startX) * system.duration / horizontalSpan)
-                    onset = system.start + onset
+                    onset = (firstPointX - system.x) * system.duration / horizontalSpan
+
+                    onset = system.onset + onset
                     event.system = system
                     event.onset = onset
-                    event.pathPoints = points
+                    event.points = points
                     mainEvents.append(event)
 
             elif event.eventType == "Star" or event.eventType == "Polygon":
                 raise Exception("Not implemented yet")
                 points = []
                 inside = True
-                for path in event.pathPoints:
-                    if path.start.real > startX and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
+                for path in event.points:
+                    if path.start.real > x and path.start.real < finishX and path.start.imag > startY and path.start.imag < finishY:
                         points.append(path)
                     else:
                         inside = False
                         break
                 if inside:
-                    horizontalSpan = system.width - system.startX
-                    verticalProportinalPosicion = system.height - (event.y - system.startY)
+                    horizontalSpan = system.width - system.x
+                    verticalPos = system.height - (event.y - system.y)
                     duration = event.width * system.duration / system.width
                     event.duration = duration
-                    event.verticalPosition = verticalProportinalPosicion / system.height
-                    onset = int((event.x - system.startX) * system.duration / horizontalSpan)
+                    event.verticalPosition = verticalPos / system.height
+                    onset = int((event.x - system.x) * system.duration / horizontalSpan)
                     onset = system.start + onset
                     event.System = system
                     event.onset = onset
@@ -531,6 +539,8 @@ def readSvg(svg_file: str):
                 continue
         if not eventIsInsideOther:
             onset = eventA.onset
+
+            # just to know first and last event
             if onset > lastonset:
                 lastonset = onset
                 lastevent = eventA
@@ -552,9 +562,14 @@ def playpath(events):
         events = [events]
 
     for event in events:
-        points = getPath(event)
+        points = buildPaths(event)
+        hasFather = event.father is not None
+        point = points[0]
         for point in points:
-            pd.add_to_player(point[0], point[1])
+            if hasFather:
+                pd.add_to_player(point.onset, point)
+            else:
+                pd.add_to_player(point.onset, point)
 
 
 def playchilds(event: list[SvgEvent]):
@@ -565,15 +580,32 @@ def playchilds(event: list[SvgEvent]):
         pd.add_to_player(child_onset, child)
 
 
-def svg_filter(event: SvgEvent, attr: str, value):
-    if hasattr(event, attr):
-        eventValue = getattr(event, attr)
-        if eventValue == value:
-            return event
+def svg_filter(events, attr: str, value):
+    # check if event is a list
+    if type(events) == list:
+        passEvents = []
+        for event in events:
+            if hasattr(event, attr):
+                eventValue = getattr(event, attr)
+                if eventValue == value:
+                    passEvents.append(event)
+
+        if len(passEvents) != 0:
+            return passEvents
+        else:
+            return
+    elif type(events) == SvgEvent:
+        event = events
+        if hasattr(event, attr):
+            eventValue = getattr(event, attr)
+            if eventValue == value:
+                return event
+            else:
+                return None
         else:
             return None
     else:
-        return None
+        raise Exception("u.filterattr: events must be a list or a SvgEvent")
 
 
 def svg_get(event: SvgEvent, attr: str):
