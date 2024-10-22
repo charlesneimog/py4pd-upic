@@ -176,9 +176,18 @@ def getEventProperties(elem) -> list:
     formatedProperties = []
     for prop in properties:
         tokens = prop.split()
-        formatedProperties.append(tokens)
+        finaltokens = []
+        for token in tokens:
+            # check if it integer
+            if token.replace("-", "").isdigit():
+                finaltokens.append(int(token))
+            elif token.replace("-", "").replace(".", "").isdigit():
+                finaltokens.append(float(token))
+            else:
+                finaltokens.append(token)
+        formatedProperties.append(finaltokens)
 
-    return properties
+    return formatedProperties
 
 
 def getSystems(parsed_svg, attr):
@@ -337,59 +346,51 @@ def cubicBezier(start: float, control1: float, control2: float, end: float, num_
 
 
 def getOnset(system, point):
-    horizontalSpan = system.width - system.x
-    firstPoint = point - system.x
-    return int(firstPoint * system.duration / horizontalSpan)
+    eventOnsetX = point - system.x
+    return int(eventOnsetX * system.duration / system.width)
 
 
 def buildPaths(event: SvgEvent):
-    system = event.system
     points = event.points
-
-    hasFather = event.father is not None
-    if event.father is not None:
-        system = event.father
-
-    msOnsetInitial = getOnset(system, points[0].start.real)
-    msOnsetFinal = getOnset(system, points[-1].end.real)
-    lengthInMs = msOnsetFinal - msOnsetInitial
-
-    finalX_Y_Points = []
+    bezierPoints = []
     onset = -1
-    stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4
     for point in points:
         className = getattr(point, "__class__")
         if className.__name__ == "CubicBezier":
-            cubicBezierPoints = cubicBezier(point.start, point.control1, point.control2, point.end, lengthInMs)
+            cubicBezierPoints = cubicBezier(point.start, point.control1, point.control2, point.end, int(event.duration))
             for cubicBezierPoint in cubicBezierPoints:
-                thisOnset = getOnset(system, cubicBezierPoint[0])
-                if thisOnset != onset:
-                    finalX_Y_Points.append(cubicBezierPoint)
-                    onset = thisOnset
+                bezierPoints.append(cubicBezierPoint)
         else:
             raise ValueError("Only CubicBezier supported for now")
 
-    fatherHeight = system.height
-    fatherY = system.y
+    father = event.system
+    hasFather = event.father is not None
+    if event.father is not None:
+        father = event.father
+    fatherHeight = father.height
+    fatherY = father.y
     hasFather = event.father is not None
     if hasFather:
         fatherHeight = event.father.height
         fatherY = event.father.y
+    else:
+        print("No father")
 
+    lastEvent = bezierPoints[-1]
+    isLast = False
     points = []
-
-    # rethink
     positionI = 0
     firstEvent = True
 
-    lastEvent = finalX_Y_Points[-1]
-    isLast = False
-
-    for point in finalX_Y_Points:
-        onset = getOnset(system, point[0])
+    stepForBlock = 1000 / pd.get_sample_rate() * pd.get_vec_size() * 4
+    lastOnset = -1
+    for point in bezierPoints:
+        onset = getOnset(father, point[0])
+        if father.x > point[0]:
+            raise ValueError("This event should be outside of this system")
         if point == lastEvent:
             isLast = True
-        if onset > stepForBlock + 1:
+        if onset > (lastOnset + stepForBlock):
             pathPoint = SvgEvent()
             if firstEvent:
                 pathPoint.first = True
@@ -404,6 +405,8 @@ def buildPaths(event: SvgEvent):
             pathPoint.finalPoints = point
             pathPoint.pathPattern = event.pathPattern
             pathPoint.onset = onset
+            lastOnset = onset
+
             vPos = fatherHeight - (point[1] - fatherY)
             pathPoint.verticalPosition = vPos / fatherHeight
             points.append(pathPoint)
@@ -424,6 +427,7 @@ def checkInsideElem(mainEvent: SvgEvent, subEvents: list[SvgEvent]):
         finishY = startY + mainHeight
         if subEvent.x > startX and subEvent.x < finishX and subEvent.y > startY and subEvent.y < finishY and subEvent.eventType != "Path":
             subEvent.father = mainEvent
+            subEvent.verticalPosition = (mainHeight - (subEvent.y - startY)) / mainHeight
             goodSubEvents.append(subEvent)
         elif subEvent.eventType == "Path":
             points = []
@@ -447,6 +451,7 @@ def readSvg(svg_file: str):
 
     # Systems as Score Systems (here retangles)
     mainEvents = []
+    print(f"Found {len(piece.Systems)} systems")
     for system in piece.Systems:
         width = system.width
         height = system.height
@@ -458,7 +463,7 @@ def readSvg(svg_file: str):
             inside = event.x > startX and event.x < finishX and event.y > startY and event.y < finishY
             normalEvent = event.eventType in ["Ellipse", "Rect"]
             if inside and normalEvent:
-                horizontalSpan = system.width - system.x
+                horizontalSpan = system.width
                 verticalPos = system.height - (event.y - system.y)
                 duration = event.width * system.duration / system.width
                 event.duration = duration
@@ -580,8 +585,24 @@ def playchilds(event: list[SvgEvent]):
         pd.add_to_player(child_onset, child)
 
 
+def updatechildonset(event: list[SvgEvent]):
+    if type(event) == SvgEvent:
+        if event.father is None:
+            pd.error("Father not found")
+        else:
+            event.onset = event.onset - event.father.onset
+        return event
+    if type(event) == list:
+        for child in event:
+            if child.father is None:
+                pd.error("Father not found")
+            else:
+                child.onset = child.onset - child.father.onset
+        return event
+    return event
+
+
 def svg_filter(events, attr: str, value):
-    # check if event is a list
     if type(events) == list:
         passEvents = []
         for event in events:
@@ -606,6 +627,10 @@ def svg_filter(events, attr: str, value):
             return None
     else:
         raise Exception("u.filterattr: events must be a list or a SvgEvent")
+
+
+def getmsgs(events):
+    return events.properties
 
 
 def svg_get(event: SvgEvent, attr: str):
