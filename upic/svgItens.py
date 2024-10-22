@@ -404,6 +404,7 @@ def buildPaths(event: SvgEvent):
             pathPoint.count = positionI
             pathPoint.finalPoints = point
             pathPoint.pathPattern = event.pathPattern
+            pathPoint.duration = event.duration
             pathPoint.onset = onset
             pathPoint.properties = event.properties
             lastOnset = onset
