@@ -407,6 +407,7 @@ def buildPaths(event: SvgEvent):
             pathPoint.duration = event.duration
             pathPoint.onset = onset
             pathPoint.properties = event.properties
+            pathPoint.father = event.father
             lastOnset = onset
             vPos = fatherHeight - (point[1] - fatherY)
             pathPoint.verticalPosition = vPos / fatherHeight
