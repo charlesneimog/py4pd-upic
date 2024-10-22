@@ -390,7 +390,7 @@ def buildPaths(event: SvgEvent):
             raise ValueError("This event should be outside of this system")
         if point == lastEvent:
             isLast = True
-        if onset > (lastOnset + stepForBlock):
+        if onset > (lastOnset + stepForBlock) or isLast:
             pathPoint = SvgEvent()
             if firstEvent:
                 pathPoint.first = True
