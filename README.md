@@ -41,3 +41,5 @@ Subevents are svgs draw inside svgs draws.
 4. Restart Pure Data.
 5. Create a new object `py4pd -lib upic`.
 
+All the objects must be avaiable to use now.
+
