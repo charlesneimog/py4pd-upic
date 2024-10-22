@@ -405,8 +405,8 @@ def buildPaths(event: SvgEvent):
             pathPoint.finalPoints = point
             pathPoint.pathPattern = event.pathPattern
             pathPoint.onset = onset
+            pathPoint.properties = event.properties
             lastOnset = onset
-
             vPos = fatherHeight - (point[1] - fatherY)
             pathPoint.verticalPosition = vPos / fatherHeight
             points.append(pathPoint)

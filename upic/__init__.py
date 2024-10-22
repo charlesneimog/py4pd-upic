@@ -25,10 +25,6 @@ def upic_setup():
     pd.add_object(playchilds, "u.playchilds", py_out=True, ignore_none=True, playable=True)
     pd.add_object(updatechildonset, "u.uptadechildsonset", py_out=True, ignore_none=True, playable=True)
 
-    # paths
-    pd.add_object(buildPaths, "u.getpath", py_out=True, ignore_none=True)
-    pd.add_object(playpath, "u.playpath", py_out=True, ignore_none=True, playable=True)
-
     # filter none
     pd.add_object(buildPaths, "u.getpath", py_out=True, ignore_none=True)
     pd.add_object(playpath, "u.playpath", py_out=True, ignore_none=True, playable=True)
