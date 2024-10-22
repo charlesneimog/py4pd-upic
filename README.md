@@ -4,4 +4,7 @@
 
 ## Install
 
-Download this package and put it in the search path of PureData. You need [py4pd](https://github.com/charlesneimog/py4pd).
+1) Create a new PureData patch;
+2) Create a `py4pd` object;
+3) Send a message with `pip install git+https://github.com/charlesneimog/py4pd-upic`;
+4) Restart PureData;
