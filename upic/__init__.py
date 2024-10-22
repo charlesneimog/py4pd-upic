@@ -1,17 +1,10 @@
 import pd
 
-try:
-    # from svgelements import *
-    from svgpathtools import svg2paths
-
-except Exception as e:
-    pd.error("Error to load svg2data: " + str(e))
-
-
+from svgpathtools import svg2paths
 from upic.svgItens import *
 
 
-def py4pd_upic_setup():
+def upic_setup():
     upic_play = pd.new_object("u.playsvg")
     upic_play.addmethod("read", readSvg)
     upic_play.playable = True
@@ -41,4 +34,4 @@ def py4pd_upic_setup():
     pd.add_object(playpath, "u.playpath", py_out=True, ignore_none=True, playable=True)
 
     # =
-    pd.print("[upic] by Charles K. Neimog (2024)", show_prefix=False)
+    pd.print("[upic] v. 0.1.0 | by Charles K. Neimog (2024)", show_prefix=False)
