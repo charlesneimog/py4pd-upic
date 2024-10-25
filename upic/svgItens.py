@@ -631,6 +631,12 @@ def svg_filter(events, attr: str, value):
         raise Exception("u.filterattr: events must be a list or a SvgEvent")
 
 
+def quantize(events: list[SvgEvent], quantization: list[int]):
+    for event in events:
+        event.onset = min(quantization, key=lambda q: abs(event.onset - q))
+    return events
+
+
 def getmsgs(events):
     return events.properties
 

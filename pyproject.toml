@@ -1,6 +1,6 @@
 [project]
 name = "py4pd-upic" # name to be used when running pip install 
-version = "0.1.0" # version number 
+version = "1.0" # version number 
 description = "py4pd-upic is a Pure Data (Pd) external object inspired by the works of Iannis Xenakis. This object is designed to facilitate the conversion of SVG (Scalable Vector Graphics) data into coordinate information within the Pure Data environment." # Description
 dependencies = [
     "svgpathtools",
